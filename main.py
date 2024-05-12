@@ -15,15 +15,22 @@ from models import *
 from utils import progress_bar
 
 
+print('현재경로',os.getcwd())
+print('현재경로의 파일들',os.listdir())
+print('절대경로',os.path.abspath('.'))
+print('\n')
+
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
 parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
 parser.add_argument('--resume', '-r', action='store_true',
                     help='resume from checkpoint')
 args = parser.parse_args()
 
+# device = 'cuda:2' if torch.cuda.is_available() else 'cpu'
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 best_acc = 0  # best test accuracy
 start_epoch = 0  # start from epoch 0 or last checkpoint epoch
+
 
 # Data
 print('==> Preparing data..')
@@ -40,17 +47,19 @@ transform_test = transforms.Compose([
 ])
 
 trainset = torchvision.datasets.CIFAR10(
-    root='./data', train=True, download=True, transform=transform_train)
+    root='/data/cifar10', train=True, download=True, transform=transform_train)
 trainloader = torch.utils.data.DataLoader(
     trainset, batch_size=128, shuffle=True, num_workers=2)
-
 testset = torchvision.datasets.CIFAR10(
-    root='./data', train=False, download=True, transform=transform_test)
+    root='/data/cifar10', train=False, download=True, transform=transform_test)
 testloader = torch.utils.data.DataLoader(
     testset, batch_size=100, shuffle=False, num_workers=2)
 
+
 classes = ('plane', 'car', 'bird', 'cat', 'deer',
-           'dog', 'frog', 'horse', 'ship', 'truck')
+           'dog', 'frog', 'horse', 'ship', 'truck') 
+
+
 
 # Model
 print('==> Building model..')
@@ -69,10 +78,25 @@ print('==> Building model..')
 # net = EfficientNetB0()
 # net = RegNetX_200MF()
 net = SimpleDLA()
-net = net.to(device)
+
+
+
 if device == 'cuda':
-    net = torch.nn.DataParallel(net)
+    my_device_ids = list(range(torch.cuda.device_count()))
+    #여기서 쓰고싶은 gpu index선택!!!!!!!!!!!!!!!!!!!!!!!!!
+    #여기서 쓰고싶은 gpu index선택!!!!!!!!!!!!!!!!!!!!!!!!!
+    #여기서 쓰고싶은 gpu index선택!!!!!!!!!!!!!!!!!!!!!!!!!
+    #여기서 쓰고싶은 gpu index선택!!!!!!!!!!!!!!!!!!!!!!!!!
+    my_device_ids = [1,2] # <--
+    device = f'cuda:{my_device_ids[0]}'
+    net = net.to(device)
+    net = torch.nn.DataParallel(net,device_ids=my_device_ids)
     cudnn.benchmark = True
+else:
+    net = net.to(device)
+
+
+print('first cuda:  ',device)
 
 if args.resume:
     # Load checkpoint.
@@ -83,7 +107,7 @@ if args.resume:
     best_acc = checkpoint['acc']
     start_epoch = checkpoint['epoch']
 
-criterion = nn.CrossEntropyLoss()
+criterion = nn.CrossEntropyLoss().to(device)
 optimizer = optim.SGD(net.parameters(), lr=args.lr,
                       momentum=0.9, weight_decay=5e-4)
 scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=200)
